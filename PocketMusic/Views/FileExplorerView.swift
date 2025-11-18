@@ -3,10 +3,13 @@ import SwiftUI
 struct FileExplorerView: View {
     @EnvironmentObject var libraryViewModel: MusicLibraryViewModel
     @EnvironmentObject var playerViewModel: PlayerViewModel
+    @StateObject private var playlistService = PlaylistService.shared
 
     @State private var searchText = ""
     @State private var showingImportSheet = false
     @State private var navigationPath: [Folder] = []
+    @State private var selectedTrackForPlaylist: MusicFile?
+    @State private var showingPlaylistPicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,6 +59,9 @@ struct FileExplorerView: View {
         .sheet(isPresented: $showingImportSheet) {
             ImportView()
         }
+        .sheet(isPresented: $showingPlaylistPicker) {
+            PlaylistPickerView(track: selectedTrackForPlaylist)
+        }
     }
 
     private var currentNavigationTitle: String {
@@ -92,6 +98,30 @@ struct FileExplorerView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 playerViewModel.play(track: file, from: files)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    selectedTrackForPlaylist = file
+                                    showingPlaylistPicker = true
+                                } label: {
+                                    Label("添加到播放列表", systemImage: "music.note.list")
+                                }
+                                .tint(.blue)
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    playerViewModel.addToQueue(file)
+                                } label: {
+                                    Label("添加到队列", systemImage: "text.line.last.and.arrowtriangle.forward")
+                                }
+                                .tint(.green)
+
+                                Button {
+                                    playerViewModel.insertNext(file)
+                                } label: {
+                                    Label("下一首播放", systemImage: "text.line.first.and.arrowtriangle.forward")
+                                }
+                                .tint(.orange)
                             }
                     }
                 }
@@ -135,6 +165,30 @@ struct FileExplorerView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             playerViewModel.play(track: file, from: results)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                selectedTrackForPlaylist = file
+                                showingPlaylistPicker = true
+                            } label: {
+                                Label("添加到播放列表", systemImage: "music.note.list")
+                            }
+                            .tint(.blue)
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button {
+                                playerViewModel.addToQueue(file)
+                            } label: {
+                                Label("添加到队列", systemImage: "text.line.last.and.arrowtriangle.forward")
+                            }
+                            .tint(.green)
+
+                            Button {
+                                playerViewModel.insertNext(file)
+                            } label: {
+                                Label("下一首播放", systemImage: "text.line.first.and.arrowtriangle.forward")
+                            }
+                            .tint(.orange)
                         }
                 }
             }

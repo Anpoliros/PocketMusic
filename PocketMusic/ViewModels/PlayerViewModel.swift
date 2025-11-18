@@ -6,8 +6,7 @@ import SwiftUI
 @MainActor
 class PlayerViewModel: ObservableObject {
     @Published var playerState = PlayerState()
-    @Published var playlist: [MusicFile] = []
-    @Published var currentIndex: Int = 0
+    @Published var playQueue = PlayQueue()
     @Published var backgroundColor: [Color] = [.blue, .purple]
 
     private let audioPlayer = AudioPlayerService.shared
@@ -71,9 +70,9 @@ class PlayerViewModel: ObservableObject {
     // MARK: - Playback Control
     func play(track: MusicFile, from playlist: [MusicFile] = []) {
         if !playlist.isEmpty {
-            self.playlist = playlist
+            playQueue.tracks = playlist
             if let index = playlist.firstIndex(where: { $0.id == track.id }) {
-                currentIndex = index
+                playQueue.currentIndex = index
             }
         }
 
@@ -120,31 +119,17 @@ class PlayerViewModel: ObservableObject {
 
     // MARK: - Playlist Navigation
     func playNext() {
-        guard !playlist.isEmpty else { return }
+        guard !playQueue.tracks.isEmpty else { return }
 
-        switch playerState.repeatMode {
-        case .one:
-            // Replay current track
-            if let track = playerState.currentTrack {
-                audioPlayer.play(track: track)
-            }
-        case .all:
-            // Move to next track, loop to beginning if at end
-            currentIndex = (currentIndex + 1) % playlist.count
-            audioPlayer.play(track: playlist[currentIndex])
-        case .off:
-            // Move to next track if available
-            if currentIndex < playlist.count - 1 {
-                currentIndex += 1
-                audioPlayer.play(track: playlist[currentIndex])
-            } else {
-                stop()
-            }
+        if let nextTrack = playQueue.next() {
+            audioPlayer.play(track: nextTrack)
+        } else {
+            stop()
         }
     }
 
     func playPrevious() {
-        guard !playlist.isEmpty else { return }
+        guard !playQueue.tracks.isEmpty else { return }
 
         // If more than 3 seconds into the track, restart it
         if playerState.currentTime > 3.0 {
@@ -153,41 +138,54 @@ class PlayerViewModel: ObservableObject {
         }
 
         // Otherwise go to previous track
-        if currentIndex > 0 {
-            currentIndex -= 1
-        } else if playerState.repeatMode == .all {
-            currentIndex = playlist.count - 1
+        if let previousTrack = playQueue.previous() {
+            audioPlayer.play(track: previousTrack)
         }
-
-        audioPlayer.play(track: playlist[currentIndex])
     }
 
     // MARK: - Playback Modes
     func toggleRepeatMode() {
-        switch playerState.repeatMode {
-        case .off:
-            playerState.repeatMode = .all
-        case .all:
-            playerState.repeatMode = .one
-        case .one:
-            playerState.repeatMode = .off
-        }
+        let newMode = playQueue.repeatMode.next()
+        playQueue.setRepeatMode(newMode)
+        playerState.repeatMode = newMode
     }
 
     func toggleShuffle() {
-        playerState.shuffleEnabled.toggle()
+        playQueue.toggleShuffle()
+        playerState.shuffleEnabled = playQueue.shuffleEnabled
+    }
 
-        if playerState.shuffleEnabled {
-            // Shuffle playlist, keeping current track at current position
-            if let currentTrack = playerState.currentTrack,
-               let originalIndex = playlist.firstIndex(where: { $0.id == currentTrack.id }) {
-                var shuffled = playlist
-                shuffled.remove(at: originalIndex)
-                shuffled.shuffle()
-                shuffled.insert(currentTrack, at: currentIndex)
-                playlist = shuffled
-            }
+    // MARK: - Queue Management
+    func addToQueue(_ track: MusicFile) {
+        playQueue.addTrack(track)
+    }
+
+    func addToQueue(_ tracks: [MusicFile]) {
+        playQueue.addTracks(tracks)
+    }
+
+    func insertNext(_ track: MusicFile) {
+        playQueue.insertNext(track)
+    }
+
+    func removeFromQueue(at index: Int) {
+        playQueue.removeTrack(at: index)
+    }
+
+    func moveInQueue(from source: Int, to destination: Int) {
+        playQueue.moveTrack(from: source, to: destination)
+    }
+
+    func jumpToTrack(at index: Int) {
+        playQueue.jumpTo(index: index)
+        if let track = playQueue.currentTrack {
+            audioPlayer.play(track: track)
         }
+    }
+
+    func clearQueue() {
+        playQueue.clear()
+        stop()
     }
 
     // MARK: - Helpers

@@ -14,6 +14,7 @@ struct PlayerView: View {
     @State private var isDraggingSlider = false
     @State private var sliderValue: Double = 0
     @State private var showLyrics = false
+    @State private var showQueue = false
 
     var body: some View {
         ZStack {
@@ -31,6 +32,20 @@ struct PlayerView: View {
         }
         .navigationTitle("正在播放")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showQueue = true
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .sheet(isPresented: $showQueue) {
+            CurrentQueueView()
+                .environmentObject(playerViewModel)
+        }
     }
 
     // MARK: - Player Content View

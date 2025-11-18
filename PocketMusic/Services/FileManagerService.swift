@@ -247,6 +247,7 @@ class FileManagerService: ObservableObject {
     // MARK: - Extract Metadata
     /// Extract metadata from a music file
     /// Extracts: title, artist, album, artwork, duration, genre, year, track number, and lyrics
+    /// Enhanced support for MP3 ID3 tags and other formats
     /// - Parameter file: The music file to extract metadata from
     /// - Returns: MusicMetadata object containing all extracted information
     func extractMetadata(from file: MusicFile) async -> MusicMetadata {
@@ -263,6 +264,7 @@ class FileManagerService: ObservableObject {
 
         // Extract metadata from audio file
         do {
+            // First, try common metadata (works for M4A, AAC, etc.)
             let commonMetadata = try await asset.load(.commonMetadata)
 
             for item in commonMetadata {
@@ -290,16 +292,138 @@ class FileManagerService: ObservableObject {
                 }
             }
 
-            // Try to extract track number from ID3 metadata
-            let formatDescriptions = try await asset.load(.metadata)
-            for item in formatDescriptions {
-                if let key = item.commonKey?.rawValue,
-                   key.contains("trackNumber") || key.contains("track") {
-                    if let trackNum = try? await item.load(.numberValue) {
-                        metadata.trackNumber = trackNum.intValue
+            // For MP3 files, also check ID3 tags and format-specific metadata
+            let allMetadata = try await asset.load(.metadata)
+
+            for item in allMetadata {
+                let keySpace = item.keySpace
+                let key = item.key as? String
+
+                // Handle ID3 tags (MP3 files)
+                if keySpace == .id3 {
+                    guard let value = try? await item.load(.value) else { continue }
+
+                    switch key {
+                    case "TIT2": // Title
+                        if metadata.title == nil, let title = value as? String {
+                            metadata.title = title
+                        }
+                    case "TPE1": // Artist
+                        if metadata.artist == nil, let artist = value as? String {
+                            metadata.artist = artist
+                        }
+                    case "TALB": // Album
+                        if metadata.album == nil, let album = value as? String {
+                            metadata.album = album
+                        }
+                    case "APIC": // Album artwork
+                        if metadata.albumArtwork == nil, let data = value as? Data {
+                            metadata.albumArtwork = UIImage(data: data)
+                        }
+                    case "TCON": // Genre
+                        if metadata.genre == nil, let genre = value as? String {
+                            metadata.genre = genre
+                        }
+                    case "TYER", "TDRC": // Year
+                        if metadata.year == nil, let year = value as? String {
+                            metadata.year = year
+                        }
+                    case "TRCK": // Track number
+                        if metadata.trackNumber == nil {
+                            if let trackStr = value as? String {
+                                // Track number may be in format "3/12"
+                                let trackNum = trackStr.split(separator: "/").first.flatMap { Int($0) }
+                                metadata.trackNumber = trackNum
+                            }
+                        }
+                    default:
+                        break
+                    }
+                }
+
+                // Handle iTunes metadata (M4A files)
+                else if keySpace == .iTunes {
+                    guard let value = try? await item.load(.value) else { continue }
+
+                    switch key {
+                    case "©nam": // Title
+                        if metadata.title == nil, let title = value as? String {
+                            metadata.title = title
+                        }
+                    case "©ART": // Artist
+                        if metadata.artist == nil, let artist = value as? String {
+                            metadata.artist = artist
+                        }
+                    case "©alb": // Album
+                        if metadata.album == nil, let album = value as? String {
+                            metadata.album = album
+                        }
+                    case "covr": // Cover art
+                        if metadata.albumArtwork == nil, let data = value as? Data {
+                            metadata.albumArtwork = UIImage(data: data)
+                        }
+                    case "©gen": // Genre
+                        if metadata.genre == nil, let genre = value as? String {
+                            metadata.genre = genre
+                        }
+                    case "©day": // Year
+                        if metadata.year == nil, let year = value as? String {
+                            metadata.year = year
+                        }
+                    case "trkn": // Track number
+                        if metadata.trackNumber == nil {
+                            if let data = value as? Data, data.count >= 4 {
+                                // Track number is stored as binary data
+                                let trackNum = Int(data[3])
+                                metadata.trackNumber = trackNum
+                            }
+                        }
+                    default:
+                        break
+                    }
+                }
+
+                // Handle QuickTime metadata (MOV, M4A)
+                else if keySpace == .quickTimeMetadata {
+                    guard let value = try? await item.load(.value) else { continue }
+
+                    if let commonKey = item.commonKey {
+                        switch commonKey {
+                        case .commonKeyTitle:
+                            if metadata.title == nil, let title = value as? String {
+                                metadata.title = title
+                            }
+                        case .commonKeyArtist:
+                            if metadata.artist == nil, let artist = value as? String {
+                                metadata.artist = artist
+                            }
+                        case .commonKeyAlbumName:
+                            if metadata.album == nil, let album = value as? String {
+                                metadata.album = album
+                            }
+                        case .commonKeyArtwork:
+                            if metadata.albumArtwork == nil, let data = value as? Data {
+                                metadata.albumArtwork = UIImage(data: data)
+                            }
+                        default:
+                            break
+                        }
                     }
                 }
             }
+
+            // Additional artwork extraction attempt if still nil
+            if metadata.albumArtwork == nil {
+                for item in allMetadata {
+                    if let dataValue = try? await item.load(.value) as? Data {
+                        if let image = UIImage(data: dataValue) {
+                            metadata.albumArtwork = image
+                            break
+                        }
+                    }
+                }
+            }
+
         } catch {
             print("⚠️ Error loading metadata for \(file.name): \(error.localizedDescription)")
         }

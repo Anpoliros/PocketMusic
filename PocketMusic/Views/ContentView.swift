@@ -17,6 +17,13 @@ struct ContentView: View {
             }
             .tag(0)
 
+            // Playlists Tab
+            PlaylistsView()
+                .tabItem {
+                    Label("播放列表", systemImage: "music.note")
+                }
+                .tag(1)
+
             // Now Playing Tab
             NavigationView {
                 PlayerView()
@@ -24,7 +31,7 @@ struct ContentView: View {
             .tabItem {
                 Label("正在播放", systemImage: "play.circle.fill")
             }
-            .tag(1)
+            .tag(2)
         }
     }
 }

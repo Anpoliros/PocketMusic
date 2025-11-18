@@ -27,6 +27,13 @@
 		A0000018 /* LyricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000018 /* LyricsView.swift */; };
 		A0000019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0000019 /* Assets.xcassets */; };
 		A0000020 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0000020 /* Preview Assets.xcassets */; };
+		A0000021 /* PlayQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000022 /* PlayQueue.swift */; };
+		A0000022 /* Playlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000023 /* Playlist.swift */; };
+		A0000023 /* PlaylistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000024 /* PlaylistService.swift */; };
+		A0000024 /* CurrentQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000025 /* CurrentQueueView.swift */; };
+		A0000025 /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000026 /* PlaylistsView.swift */; };
+		A0000026 /* PlaylistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000027 /* PlaylistDetailView.swift */; };
+		A0000027 /* PlaylistPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000028 /* PlaylistPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +60,13 @@
 		B0000019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B0000020 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		B0000021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B0000022 /* PlayQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayQueue.swift; sourceTree = "<group>"; };
+		B0000023 /* Playlist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Playlist.swift; sourceTree = "<group>"; };
+		B0000024 /* PlaylistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistService.swift; sourceTree = "<group>"; };
+		B0000025 /* CurrentQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentQueueView.swift; sourceTree = "<group>"; };
+		B0000026 /* PlaylistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
+		B0000027 /* PlaylistDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistDetailView.swift; sourceTree = "<group>"; };
+		B0000028 /* PlaylistPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +117,8 @@
 				B0000004 /* Folder.swift */,
 				B0000005 /* PlaybackState.swift */,
 				B0000006 /* Lyrics.swift */,
+				B0000022 /* PlayQueue.swift */,
+				B0000023 /* Playlist.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -114,6 +130,9 @@
 				B0000013 /* FileExplorerView.swift */,
 				B0000014 /* PlayerView.swift */,
 				B0000015 /* ImportView.swift */,
+				B0000025 /* CurrentQueueView.swift */,
+				B0000026 /* PlaylistsView.swift */,
+				B0000027 /* PlaylistDetailView.swift */,
 				D0000010 /* Components */,
 			);
 			path = Views;
@@ -135,6 +154,7 @@
 				B0000008 /* AudioPlayerService.swift */,
 				B0000009 /* ColorExtractorService.swift */,
 				B0000010 /* LyricsService.swift */,
+				B0000024 /* PlaylistService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -163,6 +183,7 @@
 				B0000016 /* MusicFileRowView.swift */,
 				B0000017 /* DynamicBackgroundView.swift */,
 				B0000018 /* LyricsView.swift */,
+				B0000028 /* PlaylistPickerView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -255,6 +276,13 @@
 				A0000016 /* MusicFileRowView.swift in Sources */,
 				A0000017 /* DynamicBackgroundView.swift in Sources */,
 				A0000018 /* LyricsView.swift in Sources */,
+				A0000021 /* PlayQueue.swift in Sources */,
+				A0000022 /* Playlist.swift in Sources */,
+				A0000023 /* PlaylistService.swift in Sources */,
+				A0000024 /* CurrentQueueView.swift in Sources */,
+				A0000025 /* PlaylistsView.swift in Sources */,
+				A0000026 /* PlaylistDetailView.swift in Sources */,
+				A0000027 /* PlaylistPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
