@@ -3,13 +3,27 @@ import AVFoundation
 import UIKit
 
 // MARK: - File Manager Service
+/// Service responsible for managing music files and directories
+/// Handles:
+/// - Scanning and organizing music files
+/// - Importing files from external sources
+/// - Extracting metadata from audio files
+/// - Loading lyrics (integrated with LyricsService)
 class FileManagerService: ObservableObject {
+    /// Shared singleton instance
     static let shared = FileManagerService()
 
+    /// System file manager
     private let fileManager = FileManager.default
+
+    /// Lyrics service for loading lyrics
+    private let lyricsService = LyricsService.shared
+
+    /// Root music directory in app's documents folder
     private let musicDirectory: URL
 
-    init() {
+    /// Initialize the service and create music directory if needed
+    private init() {
         // Create a dedicated music directory in the app's documents folder
         let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         self.musicDirectory = documentsPath.appendingPathComponent("Music", isDirectory: true)
@@ -18,13 +32,22 @@ class FileManagerService: ObservableObject {
         createMusicDirectoryIfNeeded()
     }
 
+    /// Create the music directory if it doesn't exist
     private func createMusicDirectoryIfNeeded() {
         if !fileManager.fileExists(atPath: musicDirectory.path) {
-            try? fileManager.createDirectory(at: musicDirectory, withIntermediateDirectories: true)
+            do {
+                try fileManager.createDirectory(at: musicDirectory, withIntermediateDirectories: true)
+                print("✅ Created music directory at: \(musicDirectory.path)")
+            } catch {
+                print("❌ Failed to create music directory: \(error.localizedDescription)")
+            }
         }
     }
 
     // MARK: - Scan Directory
+    /// Recursively scan a directory and build a folder structure
+    /// - Parameter url: The directory URL to scan
+    /// - Returns: A Folder object containing subfolders and music files
     func scanDirectory(at url: URL) -> Folder {
         var subfolders: [Folder] = []
         var musicFiles: [MusicFile] = []
@@ -77,12 +100,21 @@ class FileManagerService: ObservableObject {
     }
 
     // MARK: - Import Files
+    /// Import music files from external sources
+    /// Supports both individual files and entire directories
+    /// Also imports associated .lrc files if they exist
+    /// - Parameters:
+    ///   - sourceURLs: Array of URLs to import (files or directories)
+    ///   - preserveStructure: Whether to preserve the original folder structure
+    /// - Returns: Array of imported MusicFile objects
+    /// - Throws: File system errors if import fails
     func importFiles(from sourceURLs: [URL], preserveStructure: Bool = true) async throws -> [MusicFile] {
         var importedFiles: [MusicFile] = []
 
         for sourceURL in sourceURLs {
-            // Start accessing security-scoped resource
+            // Start accessing security-scoped resource (required for iOS file access)
             guard sourceURL.startAccessingSecurityScopedResource() else {
+                print("⚠️ Failed to access security-scoped resource: \(sourceURL.path)")
                 continue
             }
 
@@ -92,13 +124,16 @@ class FileManagerService: ObservableObject {
             fileManager.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory)
 
             if isDirectory.boolValue {
-                // Import entire directory
+                // Import entire directory recursively
                 let files = try await importDirectory(from: sourceURL, preserveStructure: preserveStructure)
                 importedFiles.append(contentsOf: files)
             } else {
                 // Import single file
                 if let file = try await importFile(from: sourceURL) {
                     importedFiles.append(file)
+
+                    // Also try to import associated .lrc file if it exists
+                    await importAssociatedLyricsFile(for: sourceURL, baseURL: nil, preserveStructure: preserveStructure)
                 }
             }
         }
@@ -106,6 +141,12 @@ class FileManagerService: ObservableObject {
         return importedFiles
     }
 
+    /// Import all music files from a directory recursively
+    /// - Parameters:
+    ///   - sourceURL: Source directory URL
+    ///   - preserveStructure: Whether to preserve folder structure
+    /// - Returns: Array of imported music files
+    /// - Throws: File system errors
     private func importDirectory(from sourceURL: URL, preserveStructure: Bool) async throws -> [MusicFile] {
         var importedFiles: [MusicFile] = []
 
@@ -117,8 +158,12 @@ class FileManagerService: ObservableObject {
             if resourceValues.isDirectory == false {
                 let musicFile = MusicFile(url: fileURL)
                 if musicFile.isSupported {
+                    // Import the music file
                     if let importedFile = try await importFile(from: fileURL, preserveStructure: preserveStructure, baseURL: sourceURL) {
                         importedFiles.append(importedFile)
+
+                        // Import associated lyrics file if it exists
+                        await importAssociatedLyricsFile(for: fileURL, baseURL: sourceURL, preserveStructure: preserveStructure)
                     }
                 }
             }
@@ -127,6 +172,13 @@ class FileManagerService: ObservableObject {
         return importedFiles
     }
 
+    /// Import a single music file
+    /// - Parameters:
+    ///   - sourceURL: Source file URL
+    ///   - preserveStructure: Whether to preserve folder structure
+    ///   - baseURL: Base directory URL (for calculating relative path)
+    /// - Returns: Imported MusicFile or nil if file is not supported
+    /// - Throws: File system errors
     private func importFile(from sourceURL: URL, preserveStructure: Bool = true, baseURL: URL? = nil) async throws -> MusicFile? {
         let musicFile = MusicFile(url: sourceURL)
         guard musicFile.isSupported else { return nil }
@@ -134,7 +186,7 @@ class FileManagerService: ObservableObject {
         let destinationURL: URL
 
         if preserveStructure, let baseURL = baseURL {
-            // Preserve directory structure
+            // Preserve directory structure relative to base URL
             let relativePath = sourceURL.path.replacingOccurrences(of: baseURL.path, with: "")
             destinationURL = musicDirectory.appendingPathComponent(relativePath)
 
@@ -142,19 +194,61 @@ class FileManagerService: ObservableObject {
             let destinationDirectory = destinationURL.deletingLastPathComponent()
             try fileManager.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
         } else {
-            // Flat import
+            // Flat import - all files go to root music directory
             destinationURL = musicDirectory.appendingPathComponent(sourceURL.lastPathComponent)
         }
 
-        // Copy file if it doesn't exist
+        // Copy file if it doesn't exist, skip if already imported
         if !fileManager.fileExists(atPath: destinationURL.path) {
             try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            print("✅ Imported: \(sourceURL.lastPathComponent)")
+        } else {
+            print("⏭️ Skipped (already exists): \(sourceURL.lastPathComponent)")
         }
 
         return MusicFile(url: destinationURL)
     }
 
+    /// Import associated .lrc lyrics file if it exists in the same directory
+    /// - Parameters:
+    ///   - musicFileURL: The music file URL
+    ///   - baseURL: Base directory URL (for calculating relative path)
+    ///   - preserveStructure: Whether to preserve folder structure
+    private func importAssociatedLyricsFile(for musicFileURL: URL, baseURL: URL?, preserveStructure: Bool) async {
+        // Check if .lrc file exists in the same directory
+        let lrcURL = musicFileURL.deletingPathExtension().appendingPathExtension("lrc")
+
+        guard fileManager.fileExists(atPath: lrcURL.path) else {
+            return
+        }
+
+        do {
+            let destinationLrcURL: URL
+
+            if preserveStructure, let baseURL = baseURL {
+                // Preserve directory structure
+                let relativePath = lrcURL.path.replacingOccurrences(of: baseURL.path, with: "")
+                destinationLrcURL = musicDirectory.appendingPathComponent(relativePath)
+            } else {
+                // Flat import
+                destinationLrcURL = musicDirectory.appendingPathComponent(lrcURL.lastPathComponent)
+            }
+
+            // Copy .lrc file if it doesn't exist
+            if !fileManager.fileExists(atPath: destinationLrcURL.path) {
+                try fileManager.copyItem(at: lrcURL, to: destinationLrcURL)
+                print("✅ Imported lyrics: \(lrcURL.lastPathComponent)")
+            }
+        } catch {
+            print("⚠️ Failed to import lyrics file: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Extract Metadata
+    /// Extract metadata from a music file
+    /// Extracts: title, artist, album, artwork, duration, genre, year, track number, and lyrics
+    /// - Parameter file: The music file to extract metadata from
+    /// - Returns: MusicMetadata object containing all extracted information
     func extractMetadata(from file: MusicFile) async -> MusicMetadata {
         let asset = AVAsset(url: file.url)
         var metadata = MusicMetadata()
@@ -164,10 +258,10 @@ class FileManagerService: ObservableObject {
             let duration = try await asset.load(.duration)
             metadata.duration = CMTimeGetSeconds(duration)
         } catch {
-            print("Error loading duration: \(error)")
+            print("⚠️ Error loading duration for \(file.name): \(error.localizedDescription)")
         }
 
-        // Extract metadata
+        // Extract metadata from audio file
         do {
             let commonMetadata = try await asset.load(.commonMetadata)
 
@@ -195,14 +289,37 @@ class FileManagerService: ObservableObject {
                     break
                 }
             }
+
+            // Try to extract track number from ID3 metadata
+            let formatDescriptions = try await asset.load(.metadata)
+            for item in formatDescriptions {
+                if let key = item.commonKey?.rawValue,
+                   key.contains("trackNumber") || key.contains("track") {
+                    if let trackNum = try? await item.load(.numberValue) {
+                        metadata.trackNumber = trackNum.intValue
+                    }
+                }
+            }
         } catch {
-            print("Error loading metadata: \(error)")
+            print("⚠️ Error loading metadata for \(file.name): \(error.localizedDescription)")
+        }
+
+        // Load lyrics (external .lrc file or embedded)
+        if let lyrics = await lyricsService.loadLyrics(for: file) {
+            metadata.lyrics = lyrics
+            if lyrics.isSynced {
+                print("✅ Loaded synced lyrics for: \(file.name)")
+            } else if lyrics.hasLyrics {
+                print("✅ Loaded plain lyrics for: \(file.name)")
+            }
         }
 
         return metadata
     }
 
     // MARK: - Get Music Directory
+    /// Get the root music directory URL
+    /// - Returns: URL of the music directory
     func getMusicDirectory() -> URL {
         return musicDirectory
     }

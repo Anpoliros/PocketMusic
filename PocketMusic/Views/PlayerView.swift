@@ -1,81 +1,119 @@
 import SwiftUI
 
+// MARK: - Player View
+/// Main player view mimicking Apple Music's design
+/// Features:
+/// - Album artwork display
+/// - Synchronized lyrics view
+/// - Playback controls
+/// - Dynamic background based on album artwork
 struct PlayerView: View {
     @EnvironmentObject var playerViewModel: PlayerViewModel
+
+    // MARK: - State Properties
     @State private var isDraggingSlider = false
     @State private var sliderValue: Double = 0
+    @State private var showLyrics = false
 
     var body: some View {
         ZStack {
-            // Dynamic background
+            // Dynamic background with smooth color transitions
             DynamicBackgroundView(colors: playerViewModel.backgroundColor)
                 .animation(.easeInOut(duration: 1.0), value: playerViewModel.backgroundColor)
 
-            // Content
-            VStack {
-                if let track = playerViewModel.playerState.currentTrack {
-                    ScrollView {
-                        VStack(spacing: 30) {
-                            Spacer()
-                                .frame(height: 20)
-
-                            // Album artwork
-                            albumArtwork(track: track)
-                                .padding(.horizontal, 40)
-
-                            // Track info
-                            trackInfo(track: track)
-                                .padding(.horizontal, 30)
-
-                            // Progress bar
-                            progressBar
-
-                            // Playback controls
-                            playbackControls
-                                .padding(.horizontal, 30)
-
-                            // Volume control
-                            volumeControl
-                                .padding(.horizontal, 40)
-
-                            Spacer()
-                        }
-                    }
-                } else {
-                    // Empty state
-                    emptyState
-                }
+            // Main content
+            if let track = playerViewModel.playerState.currentTrack {
+                playerContentView(track: track)
+            } else {
+                // Empty state when no track is playing
+                emptyState
             }
         }
         .navigationTitle("正在播放")
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    // MARK: - Player Content View
+    /// Main player content when a track is playing
+    private func playerContentView(track: MusicFile) -> some View {
+        VStack(spacing: 0) {
+            // Top section: Artwork or Lyrics
+            GeometryReader { geometry in
+                if showLyrics, let lyrics = track.metadata?.lyrics, lyrics.hasLyrics {
+                    // Lyrics view
+                    LyricsView(
+                        lyrics: lyrics,
+                        currentTime: playerViewModel.playerState.currentTime
+                    )
+                    .transition(.opacity.combined(with: .scale))
+                } else {
+                    // Album artwork and track info
+                    artworkAndInfoView(track: track, geometry: geometry)
+                        .transition(.opacity.combined(with: .scale))
+                }
+            }
+
+            // Bottom section: Controls
+            controlsSection(track: track)
+                .padding(.bottom, 20)
+        }
+    }
+
+    // MARK: - Artwork and Info View
+    /// Album artwork and track information section
+    private func artworkAndInfoView(track: MusicFile, geometry: GeometryProxy) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            // Album artwork
+            albumArtwork(track: track, size: geometry.size)
+                .padding(.horizontal, 40)
+
+            // Track metadata
+            trackInfo(track: track)
+                .padding(.horizontal, 30)
+
+            Spacer()
+        }
+    }
+
     // MARK: - Album Artwork
-    private func albumArtwork(track: MusicFile) -> some View {
-        Group {
+    /// Display album artwork or placeholder
+    private func albumArtwork(track: MusicFile, size: CGSize) -> some View {
+        let artworkSize = min(size.width - 80, size.height * 0.6, 400)
+
+        return Group {
             if let artwork = track.metadata?.albumArtwork {
                 Image(uiImage: artwork)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 300, height: 300)
+                    .frame(width: artworkSize, height: artworkSize)
                     .cornerRadius(20)
                     .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
             } else {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.white.opacity(0.2))
-                    .frame(width: 300, height: 300)
+                    .frame(width: artworkSize, height: artworkSize)
                     .overlay {
                         Image(systemName: "music.note")
-                            .font(.system(size: 80))
+                            .font(.system(size: artworkSize * 0.3))
                             .foregroundColor(.white.opacity(0.5))
                     }
                     .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
             }
         }
+        .onTapGesture {
+            // Toggle between artwork and lyrics view
+            if track.metadata?.lyrics?.hasLyrics == true {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showLyrics.toggle()
+                }
+            }
+        }
     }
 
     // MARK: - Track Info
+    /// Display track title, artist, and album
     private func trackInfo(track: MusicFile) -> some View {
         VStack(spacing: 8) {
             Text(track.metadata?.displayTitle ?? track.displayName)
@@ -96,10 +134,68 @@ struct PlayerView: View {
                     .foregroundColor(.white.opacity(0.6))
                     .lineLimit(1)
             }
+
+            // Lyrics indicator
+            if track.metadata?.lyrics?.hasLyrics == true {
+                HStack(spacing: 4) {
+                    Image(systemName: "text.quote")
+                        .font(.caption2)
+                    Text("点击封面查看歌词")
+                        .font(.caption2)
+                }
+                .foregroundColor(.white.opacity(0.5))
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    // MARK: - Controls Section
+    /// Bottom section containing all playback controls
+    private func controlsSection(track: MusicFile) -> some View {
+        VStack(spacing: 20) {
+            // Lyrics toggle button (only show if lyrics available)
+            if track.metadata?.lyrics?.hasLyrics == true {
+                lyricsToggleButton
+            }
+
+            // Progress bar
+            progressBar
+                .padding(.horizontal, 30)
+
+            // Playback controls
+            playbackControls
+                .padding(.horizontal, 30)
+
+            // Volume control
+            volumeControl
+                .padding(.horizontal, 40)
+        }
+    }
+
+    // MARK: - Lyrics Toggle Button
+    /// Button to toggle between artwork and lyrics view
+    private var lyricsToggleButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showLyrics.toggle()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: showLyrics ? "photo" : "text.quote")
+                    .font(.subheadline)
+                Text(showLyrics ? "专辑封面" : "显示歌词")
+                    .font(.subheadline)
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.2))
+            .cornerRadius(20)
         }
     }
 
     // MARK: - Progress Bar
+    /// Playback progress slider with time labels
     private var progressBar: some View {
         VStack(spacing: 8) {
             Slider(
@@ -135,13 +231,13 @@ struct PlayerView: View {
                     .monospacedDigit()
             }
         }
-        .padding(.horizontal, 30)
     }
 
     // MARK: - Playback Controls
+    /// Main playback control buttons
     private var playbackControls: some View {
         HStack(spacing: 40) {
-            // Shuffle
+            // Shuffle button
             Button {
                 playerViewModel.toggleShuffle()
             } label: {
@@ -150,7 +246,7 @@ struct PlayerView: View {
                     .foregroundColor(.white)
             }
 
-            // Previous
+            // Previous track button
             Button {
                 playerViewModel.playPrevious()
             } label: {
@@ -159,7 +255,7 @@ struct PlayerView: View {
                     .foregroundColor(.white)
             }
 
-            // Play/Pause
+            // Play/Pause button
             Button {
                 playerViewModel.togglePlayPause()
             } label: {
@@ -168,7 +264,7 @@ struct PlayerView: View {
                     .foregroundColor(.white)
             }
 
-            // Next
+            // Next track button
             Button {
                 playerViewModel.playNext()
             } label: {
@@ -177,7 +273,7 @@ struct PlayerView: View {
                     .foregroundColor(.white)
             }
 
-            // Repeat
+            // Repeat button
             Button {
                 playerViewModel.toggleRepeatMode()
             } label: {
@@ -188,6 +284,7 @@ struct PlayerView: View {
         }
     }
 
+    /// Icon for repeat button based on current repeat mode
     private var repeatIcon: String {
         switch playerViewModel.playerState.repeatMode {
         case .off:
@@ -200,6 +297,7 @@ struct PlayerView: View {
     }
 
     // MARK: - Volume Control
+    /// Volume slider with speaker icons
     private var volumeControl: some View {
         HStack(spacing: 12) {
             Image(systemName: "speaker.fill")
@@ -222,6 +320,7 @@ struct PlayerView: View {
     }
 
     // MARK: - Empty State
+    /// Display when no track is currently playing
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "music.note")
@@ -241,6 +340,7 @@ struct PlayerView: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     NavigationView {
         PlayerView()
