@@ -3,9 +3,9 @@ import Foundation
 // MARK: - Lyrics Model
 /// Represents lyrics for a music track
 /// Can be plain text or time-synced (LRC format)
-struct Lyrics: Codable, Equatable {
+struct Lyrics: Codable, Equatable, Hashable {
     /// The source of the lyrics
-    enum Source: Codable {
+    enum Source: Codable, Equatable, Hashable {
         /// Lyrics embedded in the audio file metadata
         case embedded
 
@@ -14,6 +14,19 @@ struct Lyrics: Codable, Equatable {
 
         /// Manually added lyrics
         case manual
+        
+        static func == (lhs: Source, rhs: Source) -> Bool {
+            switch (lhs, rhs) {
+            case (.embedded, .embedded):
+                return true
+            case (.manual, .manual):
+                return true
+            case (.externalFile(let url1), .externalFile(let url2)):
+                return url1 == url2
+            default:
+                return false
+            }
+        }
     }
 
     /// Plain text lyrics (no timing information)
@@ -61,7 +74,7 @@ struct Lyrics: Codable, Equatable {
 
 // MARK: - Lyric Line
 /// A single line of lyrics with timing information
-struct LyricLine: Codable, Equatable, Identifiable {
+struct LyricLine: Codable, Equatable, Hashable, Identifiable {
     /// Unique identifier for SwiftUI list
     var id: UUID = UUID()
 
@@ -98,7 +111,7 @@ struct LyricLine: Codable, Equatable, Identifiable {
 
 // MARK: - Lyrics Metadata
 /// Metadata information from LRC file
-struct LyricsMetadata: Codable, Equatable {
+struct LyricsMetadata: Codable, Equatable, Hashable {
     /// Song title
     var title: String?
 

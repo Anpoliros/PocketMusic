@@ -22,32 +22,25 @@ class MusicLibraryViewModel: ObservableObject {
         errorMessage = nil
 
         Task {
-            do {
-                let musicDirectory = fileManager.getMusicDirectory()
-                let rootFolder = fileManager.scanDirectory(at: musicDirectory)
+            // Synchronous scanning and asynchronous metadata extraction; none of these calls throw
+            let musicDirectory = fileManager.getMusicDirectory()
+            let rootFolder = fileManager.scanDirectory(at: musicDirectory)
 
-                // Extract all files recursively
-                var allFiles: [MusicFile] = []
-                extractFiles(from: rootFolder, into: &allFiles)
+            // Extract all files recursively
+            var allFiles: [MusicFile] = []
+            extractFiles(from: rootFolder, into: &allFiles)
 
-                // Load metadata for all files
-                for i in 0..<allFiles.count {
-                    let metadata = await fileManager.extractMetadata(from: allFiles[i])
-                    allFiles[i].metadata = metadata
-                }
+            // Load metadata for all files
+            for i in 0..<allFiles.count {
+                let metadata = await fileManager.extractMetadata(from: allFiles[i])
+                allFiles[i].metadata = metadata
+            }
 
-                await MainActor.run {
-                    self.library = MusicLibrary(
-                        folders: rootFolder.subfolders,
-                        allFiles: allFiles
-                    )
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = error.localizedDescription
-                    self.isLoading = false
-                }
+            await MainActor.run {
+                // Populate the existing MusicLibrary instance with scanned data
+                self.library.folders = [rootFolder]
+                self.library.allFiles = allFiles
+                self.isLoading = false
             }
         }
     }

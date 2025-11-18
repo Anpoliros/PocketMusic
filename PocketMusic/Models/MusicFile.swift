@@ -49,7 +49,7 @@ struct MusicFile: Identifiable, Hashable {
 // MARK: - Music Metadata
 /// Contains all metadata information for a music file
 /// Including title, artist, album, artwork, and lyrics
-struct MusicMetadata {
+struct MusicMetadata: Equatable, Hashable {
     /// Track title from metadata
     var title: String?
 
@@ -90,5 +90,31 @@ struct MusicMetadata {
     /// Display album with fallback
     var displayAlbum: String {
         album ?? "Unknown Album"
+    }
+    
+    // Manual Equatable implementation (UIImage is not Equatable)
+    static func == (lhs: MusicMetadata, rhs: MusicMetadata) -> Bool {
+        return lhs.title == rhs.title &&
+               lhs.artist == rhs.artist &&
+               lhs.album == rhs.album &&
+               lhs.duration == rhs.duration &&
+               lhs.genre == rhs.genre &&
+               lhs.year == rhs.year &&
+               lhs.trackNumber == rhs.trackNumber &&
+               lhs.lyrics == rhs.lyrics
+        // Note: albumArtwork (UIImage) is intentionally excluded from equality comparison
+    }
+    
+    // Manual Hashable implementation (UIImage is not Hashable)
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(title)
+        hasher.combine(artist)
+        hasher.combine(album)
+        hasher.combine(duration)
+        hasher.combine(genre)
+        hasher.combine(year)
+        hasher.combine(trackNumber)
+        hasher.combine(lyrics)
+        // Note: albumArtwork (UIImage) is intentionally excluded from hash
     }
 }

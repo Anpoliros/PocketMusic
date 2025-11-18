@@ -30,6 +30,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1CE060CC2ECCD612006569EB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B0000000 /* PocketMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PocketMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0000001 /* PocketMusicApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PocketMusicApp.swift; sourceTree = "<group>"; };
 		B0000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -150,6 +151,7 @@
 		D0000009 /* Preview Content */ = {
 			isa = PBXGroup;
 			children = (
+				1CE060CC2ECCD612006569EB /* Info.plist */,
 				B0000020 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
